@@ -7,16 +7,11 @@
 /// Task: Verify the module builds correctly
 
 module challenge::day_01 {
-    // Day 1: Basic module structure + primitive types
-
-    // TODO: Define three constants to practice primitive types
-    //
-    // Example format:
-    // const NUMBER: u64 = 42;
-    // const FLAG: bool = true;
-    // const MY_ADDRESS: address = @0x1;
-    //
-    // Remember: Constants must be named in UPPERCASE!
+    
+    const NUMBER: u8 = 1;
+    const BOOL: bool = true;
+    const ADRES: address = @0xEA4;
+   
 
 }
 
