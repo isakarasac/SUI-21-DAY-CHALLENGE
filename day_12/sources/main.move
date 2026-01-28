@@ -1,18 +1,11 @@
 /// DAY 12: Option for Task Lookup
-/// 
-/// Today you will:
-/// 1. Learn about Option<T> type
-/// 2. Write a function to find tasks by title
-/// 3. Handle the case when task is not found
-///
-/// Note: You can copy code from day_11/sources/solution.move if needed
-
 module challenge::day_12 {
     use std::vector;
     use std::string::String;
     use std::option::{Self, Option};
 
-    // Copy from day_11: TaskStatus, Task, and TaskBoard
+    // Copy from day_11: TaskStatus, Task, TaskBoard
+
     public enum TaskStatus has copy, drop {
         Open,
         Completed,
@@ -48,15 +41,24 @@ module challenge::day_12 {
         vector::push_back(&mut board.tasks, task);
     }
 
-    // TODO: Write a function 'find_task_by_title' that:
-    // - Takes board: &TaskBoard and title: &String
-    // - Returns Option<u64> (the index if found, None if not found)
-    // - Loops through tasks and compares titles
-    // public fun find_task_by_title(board: &TaskBoard, title: &String): Option<u64> {
-    //     // Your code here
-    //     // Use a while loop to iterate
-    //     // Use option::some(index) if found
-    //     // Use option::none() if not found
-    // }
-}
+    public fun complete_task(task: &mut Task) {
+        task.status = TaskStatus::Completed;
+    }
 
+    /// Returns Option<u64> (index) if found, None if not found
+    public fun find_task_by_title(board: &TaskBoard, title: &String): Option<u64> {
+        let len = vector::length(&board.tasks);
+        let wanted = *title; // copy String out of &String (String has copy in this challenge)
+
+        let mut i: u64 = 0;
+        while (i < len) {
+            let t = *vector::borrow(&board.tasks, i); // copy Task out of &Task (Task has copy)
+            if (t.title == wanted) {
+                return option::some(i);
+            };
+            i = i + 1;
+        };
+
+        option::none()
+    }
+}
