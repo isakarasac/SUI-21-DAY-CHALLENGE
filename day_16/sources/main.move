@@ -1,17 +1,9 @@
-/// DAY 16: Introduce Object with UID & key
-/// 
-/// Today you will:
-/// 1. Learn about UID (Unique Identifier)
-/// 2. Learn about the 'key' ability
-/// 3. Create your first Sui object
-///
-/// Note: The code includes plotId support. You can copy code from 
-/// day_15/sources/solution.move if needed (note: plotId functionality has been added)
-
 module challenge::day_16 {
+    use std::vector;
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+    use sui::transfer;
 
-
-    // Copy from day_15: FarmCounters struct
     const MAX_PLOTS: u64 = 20;
     const E_PLOT_NOT_FOUND: u64 = 1;
     const E_PLOT_LIMIT_EXCEEDED: u64 = 2;
@@ -25,71 +17,62 @@ module challenge::day_16 {
     }
 
     fun new_counters(): FarmCounters {
-        FarmCounters {
-            planted: 0,
-            harvested: 0,
-            plots: vector::empty(),
-        }
+        FarmCounters { planted: 0, harvested: 0, plots: vector::empty<u8>() }
     }
 
-    fun plant(counters: &mut FarmCounters, plotId: u8) {
-        // Check if plotId is valid (between 1 and 20)
-        assert!(plotId >= 1 && plotId <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
-        
-        // Check if we've reached the plot limit
-        let len = vector::length(&counters.plots);
-        assert!(len < MAX_PLOTS, E_PLOT_LIMIT_EXCEEDED);
-        
-        // Check if plot already exists in the vector
+    fun plant(counters: &mut FarmCounters, plot_id: u8) {
+        assert!(plot_id > 0 && plot_id <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
+        assert!(vector::length(&counters.plots) < MAX_PLOTS, E_PLOT_LIMIT_EXCEEDED);
+
         let mut i = 0;
+        let len = vector::length(&counters.plots);
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            assert!(*existing_plot != plotId, E_PLOT_ALREADY_EXISTS);
+            assert!(*vector::borrow(&counters.plots, i) != plot_id, E_PLOT_ALREADY_EXISTS);
             i = i + 1;
         };
-        
+
+        vector::push_back(&mut counters.plots, plot_id);
         counters.planted = counters.planted + 1;
-        vector::push_back(&mut counters.plots, plotId);
     }
 
-    fun harvest(counters: &mut FarmCounters, plotId: u8) {
-        let len = vector::length(&counters.plots);
-                
-        // Check if plot exists in the vector and find its index
+    fun harvest(counters: &mut FarmCounters, plot_id: u8) {
         let mut i = 0;
-        let mut found_index = len; 
+        let len = vector::length(&counters.plots);
+        let mut found = false;
+
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            if (*existing_plot == plotId) {
-                found_index = i;
+            if (*vector::borrow(&counters.plots, i) == plot_id) {
+                vector::swap_remove(&mut counters.plots, i);
+                found = true;
+                break;
             };
             i = i + 1;
         };
-        
-        // Assert that plot was found (found_index < len means we found it)
-        assert!(found_index < len, E_PLOT_NOT_FOUND);
-        
-        // Remove the plot from the vector
-        vector::remove(&mut counters.plots, found_index);
+
+        assert!(found, E_PLOT_NOT_FOUND);
         counters.harvested = counters.harvested + 1;
     }
 
-    // TODO: Define a struct called 'Farm' with:
-    // - id: UID (this makes it a Sui object)
-    // - counters: FarmCounters
-    // Add 'key' ability (required for Sui objects)
-    // public struct Farm has key {
-    //     id: UID,
-    //     counters: FarmCounters,
-    // }
+    public struct Farm has key {
+        id: UID,
+        counters: FarmCounters,
+    }
 
-    // TODO: Write a constructor 'new_farm' that:
-    // - Takes ctx: &mut TxContext
-    // - Creates a UID using object::new(ctx)
-    // - Returns a Farm with the UID and default counters
-    // fun new_farm(ctx: &mut TxContext): Farm {
-    //     // Your code here
-    //     // Hint: let id = object::new(ctx);
-    // }
+    public fun new_farm(ctx: &mut TxContext): Farm {
+        let id = object::new(ctx);
+        Farm { id, counters: new_counters() }
+    }
+
+    public fun farm_plant(farm: &mut Farm, plot_id: u8) {
+        plant(&mut farm.counters, plot_id);
+    }
+
+    public fun farm_harvest(farm: &mut Farm, plot_id: u8) {
+        harvest(&mut farm.counters, plot_id);
+    }
+
+    public entry fun create_farm(ctx: &mut TxContext) {
+        let farm = new_farm(ctx);
+        transfer::transfer(farm, tx_context::sender(ctx));
+    }
 }
-
