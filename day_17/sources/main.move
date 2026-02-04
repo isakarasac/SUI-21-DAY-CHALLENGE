@@ -1,23 +1,18 @@
-/// DAY 17: Ownership of Objects & Simple Entry Function
-/// 
-/// Today you will:
-/// 1. Learn about object ownership
-/// 2. Write your first entry function
-/// 3. Transfer objects to users
-///
-/// Note: The code includes plotId support. You can copy code from 
-/// day_16/sources/solution.move if needed (note: plotId functionality has been added)
-
 module challenge::day_17 {
-   
+    use std::vector;
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+    use sui::transfer;
 
-    // Copy from day_16: FarmCounters and Farm
     const MAX_PLOTS: u64 = 20;
     const E_PLOT_NOT_FOUND: u64 = 1;
     const E_PLOT_LIMIT_EXCEEDED: u64 = 2;
     const E_INVALID_PLOT_ID: u64 = 3;
     const E_PLOT_ALREADY_EXISTS: u64 = 4;
 
+    // -------------------------
+    // Counters
+    // -------------------------
     public struct FarmCounters has copy, drop, store {
         planted: u64,
         harvested: u64,
@@ -28,52 +23,49 @@ module challenge::day_17 {
         FarmCounters {
             planted: 0,
             harvested: 0,
-            plots: vector::empty(),
+            plots: vector::empty<u8>(),
         }
     }
 
-    fun plant(counters: &mut FarmCounters, plotId: u8) {
-        // Check if plotId is valid (between 1 and 20)
-        assert!(plotId >= 1 && plotId <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
-        
-        // Check if we've reached the plot limit
-        let len = vector::length(&counters.plots);
-        assert!(len < MAX_PLOTS, E_PLOT_LIMIT_EXCEEDED);
-        
-        // Check if plot already exists in the vector
+    fun plant(counters: &mut FarmCounters, plot_id: u8) {
+        assert!(plot_id > 0 && plot_id <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
+        assert!(vector::length(&counters.plots) < MAX_PLOTS, E_PLOT_LIMIT_EXCEEDED);
+
         let mut i = 0;
+        let len = vector::length(&counters.plots);
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            assert!(*existing_plot != plotId, E_PLOT_ALREADY_EXISTS);
+            assert!(
+                *vector::borrow(&counters.plots, i) != plot_id,
+                E_PLOT_ALREADY_EXISTS
+            );
             i = i + 1;
         };
-        
+
+        vector::push_back(&mut counters.plots, plot_id);
         counters.planted = counters.planted + 1;
-        vector::push_back(&mut counters.plots, plotId);
     }
 
-    fun harvest(counters: &mut FarmCounters, plotId: u8) {
+    fun harvest(counters: &mut FarmCounters, plot_id: u8) {
         let len = vector::length(&counters.plots);
-                
-        // Check if plot exists in the vector and find its index
         let mut i = 0;
-        let mut found_index = len; 
+        let mut found = false;
+
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            if (*existing_plot == plotId) {
-                found_index = i;
+            if (*vector::borrow(&counters.plots, i) == plot_id) {
+                vector::swap_remove(&mut counters.plots, i);
+                found = true;
+                break;
             };
             i = i + 1;
         };
-        
-        // Assert that plot was found (found_index < len means we found it)
-        assert!(found_index < len, E_PLOT_NOT_FOUND);
-        
-        // Remove the plot from the vector
-        vector::remove(&mut counters.plots, found_index);
+
+        assert!(found, E_PLOT_NOT_FOUND);
         counters.harvested = counters.harvested + 1;
     }
 
+    // -------------------------
+    // Farm object (ownership)
+    // -------------------------
     public struct Farm has key {
         id: UID,
         counters: FarmCounters,
@@ -86,26 +78,25 @@ module challenge::day_17 {
         }
     }
 
-    // TODO: Write an entry function 'create_farm' that:
-    // - Takes ctx: &mut TxContext
-    // - Creates a Farm using new_farm
-    // - Make it shareable object using transfer::share_object(farm)
-    // entry fun create_farm(ctx: &mut TxContext) {
-    //     // Your code here
-    // }
+    // -------------------------
+    // ENTRY FUNCTIONS
+    // -------------------------
+    public entry fun create_farm(ctx: &mut TxContext) {
+        let farm = new_farm(ctx);
+        transfer::transfer(farm, tx_context::sender(ctx));
+    }
 
-    // TODO: Write a function 'plant_on_farm' that:
-    // - Takes farm: &mut Farm, plotId: u8
-    // - Calls plant() on farm.counters with plotId
-    // fun plant_on_farm(farm: &mut Farm, plotId: u8) {
-    //     // Your code here
-    // }
+    public entry fun plant_on_farm(
+        farm: &mut Farm,
+        plot_id: u8
+    ) {
+        plant(&mut farm.counters, plot_id);
+    }
 
-    // TODO: Write a function 'harvest_from_farm' that:
-    // - Takes farm: &mut Farm, plotId: u8
-    // - Calls harvest() on farm.counters with plotId
-    // fun harvest_from_farm(farm: &mut Farm, plotId: u8) {
-    //     // Your code here
-    // }
+    public entry fun harvest_from_farm(
+        farm: &mut Farm,
+        plot_id: u8
+    ) {
+        harvest(&mut farm.counters, plot_id);
+    }
 }
-
