@@ -1,16 +1,11 @@
 /// DAY 19: Simple Query Functions (View-like)
-/// 
-/// Today you will:
-/// 1. Write read-only functions
-/// 2. Query object state
-/// 3. Write tests for query functions (optional)
-///
-/// Note: The code includes plotId support with all farm functions. 
-/// You can reference day_18/sources/solution.move for basic structure, 
-
 
 module challenge::day_19 {
-   
+
+    use std::vector;
+    use sui::object::UID;
+    use sui::tx_context::TxContext;
+    use sui::transfer;
 
     const MAX_PLOTS: u64 = 20;
     const E_PLOT_NOT_FOUND: u64 = 1;
@@ -32,45 +27,40 @@ module challenge::day_19 {
         }
     }
 
-    fun plant(counters: &mut FarmCounters, plotId: u8) {
-        // Check if plotId is valid (between 1 and 20)
-        assert!(plotId >= 1 && plotId <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
-        
-        // Check if we've reached the plot limit
+    fun plant(counters: &mut FarmCounters, plot_id: u8) {
+        assert!(plot_id >= 1 && plot_id <= (MAX_PLOTS as u8), E_INVALID_PLOT_ID);
+
         let len = vector::length(&counters.plots);
         assert!(len < MAX_PLOTS, E_PLOT_LIMIT_EXCEEDED);
-        
-        // Check if plot already exists in the vector
-        let mut i = 0;
+
+        let mut i: u64 = 0;
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            assert!(*existing_plot != plotId, E_PLOT_ALREADY_EXISTS);
+            let p = *vector::borrow(&counters.plots, i);
+            assert!(p != plot_id, E_PLOT_ALREADY_EXISTS);
             i = i + 1;
         };
-        
+
         counters.planted = counters.planted + 1;
-        vector::push_back(&mut counters.plots, plotId);
+        vector::push_back(&mut counters.plots, plot_id);
     }
 
-    fun harvest(counters: &mut FarmCounters, plotId: u8) {
+    fun harvest(counters: &mut FarmCounters, plot_id: u8) {
         let len = vector::length(&counters.plots);
-                
-        // Check if plot exists in the vector and find its index
-        let mut i = 0;
-        let mut found_index = len; 
+
+        let mut i: u64 = 0;
+        let mut found: u64 = len;
+
         while (i < len) {
-            let existing_plot = vector::borrow(&counters.plots, i);
-            if (*existing_plot == plotId) {
-                found_index = i;
+            let p = *vector::borrow(&counters.plots, i);
+            if (p == plot_id) {
+                found = i;
             };
             i = i + 1;
         };
-        
-        // Assert that plot was found (found_index < len means we found it)
-        assert!(found_index < len, E_PLOT_NOT_FOUND);
-        
-        // Remove the plot from the vector
-        vector::remove(&mut counters.plots, found_index);
+
+        assert!(found < len, E_PLOT_NOT_FOUND);
+
+        vector::remove(&mut counters.plots, found);
         counters.harvested = counters.harvested + 1;
     }
 
@@ -81,7 +71,7 @@ module challenge::day_19 {
 
     fun new_farm(ctx: &mut TxContext): Farm {
         Farm {
-            id: object::new(ctx),
+            id: sui::object::new(ctx),
             counters: new_counters(),
         }
     }
@@ -91,39 +81,21 @@ module challenge::day_19 {
         transfer::share_object(farm);
     }
 
-    fun plant_on_farm(farm: &mut Farm, plotId: u8) {
-        plant(&mut farm.counters, plotId);
+    fun plant_on_farm(farm: &mut Farm, plot_id: u8) {
+        plant(&mut farm.counters, plot_id);
     }
 
-    fun harvest_from_farm(farm: &mut Farm, plotId: u8) {
-        harvest(&mut farm.counters, plotId);
+    fun harvest_from_farm(farm: &mut Farm, plot_id: u8) {
+        harvest(&mut farm.counters, plot_id);
     }
 
-    entry fun plant_on_farm_entry(farm: &mut Farm, plotId: u8) {
-        plant_on_farm(farm, plotId);
+    /// ===== DAY 19 QUERY (READ-ONLY) FUNCTIONS =====
+
+    public fun total_planted(farm: &Farm): u64 {
+        farm.counters.planted
     }
 
-    entry fun harvest_from_farm_entry(farm: &mut Farm, plotId: u8) {
-        harvest_from_farm(farm, plotId);
+    public fun total_harvested(farm: &Farm): u64 {
+        farm.counters.harvested
     }
-
-    // TODO: Write a function 'total_planted' that:
-    // - Takes farm: &Farm (read-only reference)
-    // - Returns u64 (the planted count)
-    // public fun total_planted(farm: &Farm): u64 {
-    //     // Your code here
-    // }
-
-    // TODO: Write a function 'total_harvested' that:
-    // - Takes farm: &Farm
-    // - Returns u64 (the harvested count)
-    // public fun total_harvested(farm: &Farm): u64 {
-    //     // Your code here
-    // }
-
-    // TODO: (Optional) Write a test that:
-    // - Creates a farm
-    // - Plants once
-    // - Checks that total_planted returns 1
 }
-
